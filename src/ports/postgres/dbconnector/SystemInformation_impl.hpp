@@ -544,6 +544,8 @@ FmgrInfo*
 FunctionInformation::getFuncMgrInfo() {
     // Initially flinfo.fn_oid is set to InvalidOid
     if (flinfo.fn_oid != oid) {
+        #if PG_VERSION_NUM < 160000
+        // Pre-PostgreSQL 16 behavior
         // Check permissions
         if (madlib_pg_proc_aclcheck(oid, GetUserId(), ACL_EXECUTE)
             != ACLCHECK_OK) {
@@ -566,6 +568,31 @@ FunctionInformation::getFuncMgrInfo() {
             // is *not* SECURITY DEFINER.
             setSystemInformationInFmgrInfo(&flinfo, mSysInfo);
         }
+        #else
+        // PostgreSQL 16 or later
+        try {
+            // Execute or access the function/object, relying on
+            // PostgreSQL 16's error handling
+            madlib_fmgr_info_cxt(oid, &flinfo, mSysInfo->cacheContext);
+
+            if (!secdef) {
+                // If the function is SECURITY DEFINER then fmgr_info_cxt() has
+                // set up flinfo so that what we will actually
+                // call fmgr_security_definer() in fmgr.c, which then calls the
+                // "real" function. Because of this additional layer, and since
+                // fmgr_security_definer() uses the fn_extra field of
+                // struct FmgrInfo in an opaque way (it points to a struct that is
+                // local to fmgr.c), we only initialize the cache if the function
+                // is *not* SECURITY DEFINER.
+                setSystemInformationInFmgrInfo(&flinfo, mSysInfo);
+            }
+        } catch (const std::exception& e) {
+          // Handle permission exceptions or other types of failures
+          throw std::invalid_argument(std::string("No privilege to run function '") +
+                                      getFullName() +
+                                      "'. Error: " + e.what());
+        }
+        #endif
     }
 
     return &flinfo;
