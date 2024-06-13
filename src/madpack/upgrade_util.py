@@ -384,7 +384,7 @@ class ChangeHandler(UpgradeBase):
                 changed_opcs.add((opc, e['index']))
         gte_gpdb5 = (self._portid == 'greenplum' and
                      is_rev_gte(get_rev_num(self._dbver), get_rev_num('5.0')))
-        if (self._portid == 'postgres' or gte_gpdb5):
+        if (self._portid == 'postgres' or self._portid == 'cloudberry' or gte_gpdb5):
             method_col = 'opcmethod'
         else:
             method_col = 'opcamid'
@@ -989,7 +989,7 @@ class ScriptCleaner(UpgradeBase):
         """
         gte_gpdb5 = (self._portid == 'greenplum' and
                      is_rev_gte(get_rev_num(self._dbver), get_rev_num('5.0')))
-        if (self._portid == 'postgres' or gte_gpdb5):
+        if (self._portid == 'postgres' or self._portid == 'cloudberry' or gte_gpdb5):
             method_col = 'opcmethod'
         else:
             method_col = 'opcamid'
